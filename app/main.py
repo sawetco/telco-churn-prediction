@@ -5,13 +5,15 @@ from app.model import predict_churn
 
 app = FastAPI(
     title="Telco Churn Prediction API",
-    description="Müşteri kaybı tahmin servisi",
-    version="1.0.0"
+    description="Müşteri kaybı tahmin servisi. Ham müşteri verisini alır, churn tahmini döndürür.",
+    version="2.0.0"
 )
+
 
 @app.get("/")
 def root():
-    return {"message": "Telco Churn Prediction API çalışıyor!"}
+    return {"message": "Telco Churn Prediction API çalışıyor!", "version": "2.0.0"}
+
 
 @app.post("/predict", response_model=PredictionOutput)
 def predict(customer: CustomerInput):
