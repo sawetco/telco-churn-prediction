@@ -180,7 +180,7 @@ Müşteri bilgilerini **ham/kategorik formatta** alır, churn tahmini döndürü
 
 ## Veri Seti
 
-Kaggle üzerindeki [Telco Customer Churn](https://www.kaggle.com/datasets/blastchar/telco-churn) veri seti kullanılmıştır.
+Kaggle üzerindeki [Telco Customer Churn](https://www.kaggle.com/datasets/blastchar/telco-customer-churn) veri seti kullanılmıştır.
 
 - **7043 müşteri**, **21 özellik**
 - Hedef değişken: `Churn` (Yes/No)
