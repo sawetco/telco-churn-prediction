@@ -8,6 +8,17 @@ Telekom sektöründe müşteri kaybını (churn) tahmin eden uçtan uca bir maki
 
 Bu proje, Kaggle'daki **Telco Customer Churn** veri seti kullanılarak geliştirilmiştir. Bir müşterinin hizmeti bırakıp bırakmayacağını tahmin eden bir model eğitilmiş ve bu model FastAPI ile servis haline getirilmiştir. Ayrıca Streamlit ile kullanıcı dostu bir web arayüzü geliştirilmiştir.
 
+### Projenin Öne Çıkan Özellikleri
+
+- **Genişletilmiş EDA**: Korelasyon matrisi, boxplot'lar, feature importance analizi
+- **Çoklu model karşılaştırması**: Logistic Regression, Random Forest, XGBoost
+- **Hiperparametre optimizasyonu**: GridSearchCV ile 5-fold cross-validation
+- **Sınıf dengesizliği çözümleri**: class_weight='balanced' ve SMOTE denendi
+- **Kullanıcı dostu API**: Ham/kategorik veriyi kabul eder, preprocessing dahili yapılır
+- **Türkçe Streamlit arayüzü**
+- **Docker ile containerized deployment**
+- **API testleri**
+
 ---
 
 ## Proje Yapısı
@@ -20,12 +31,14 @@ telco-churn-prediction/
 │   └── eda_and_training.ipynb         # Keşifsel veri analizi ve model eğitimi
 ├── app/
 │   ├── main.py                        # FastAPI uygulaması
-│   ├── model.py                       # Model yükleme ve tahmin fonksiyonu
+│   ├── model.py                       # Model yükleme, preprocessing ve tahmin
 │   └── schemas.py                     # Input/output veri tipleri
 ├── models/
-│   ├── model.pkl                      # Eğitilmiş model
+│   ├── model.pkl                      # Eğitilmiş model (XGBoost)
 │   ├── scaler.pkl                     # StandardScaler
 │   └── feature_names.pkl              # Feature isimleri
+├── tests/
+│   └── test_api.py                    # API testleri
 ├── streamlit_app.py                   # Web arayüzü
 ├── requirements.txt
 ├── Dockerfile
@@ -38,9 +51,10 @@ telco-churn-prediction/
 
 | Teknoloji | Amaç |
 |---|---|
-| Python 3.11 | Ana programlama dili |
+| Python 3.11+ | Ana programlama dili |
 | Pandas, NumPy | Veri işleme |
-| Scikit-learn, XGBoost | Model eğitimi |
+| Scikit-learn, XGBoost | Model eğitimi ve değerlendirme |
+| imbalanced-learn | SMOTE ile sınıf dengesizliği |
 | FastAPI | REST API servisi |
 | Streamlit | Web arayüzü |
 | Docker | Containerization |
@@ -49,15 +63,32 @@ telco-churn-prediction/
 
 ## Model Performansı
 
-3 farklı model denenmiş ve karşılaştırılmıştır:
+### Temel Model Karşılaştırması (ROC-AUC predict_proba ile düzeltilmiş)
 
 | Model | Accuracy | F1 Score | ROC-AUC |
 |---|---|---|---|
-| Logistic Regression | 0.8038 | 0.6091 | **0.7308** |
-| Random Forest | 0.7910 | 0.5625 | 0.6999 |
-| XGBoost | 0.7783 | 0.5679 | 0.7048 |
+| Logistic Regression | 0.8038 | 0.6091 | 0.8358 |
+| Random Forest | 0.7910 | 0.5625 | 0.8204 |
+| XGBoost | 0.7783 | 0.5679 | 0.8196 |
 
-En yüksek ROC-AUC skoruna sahip **Logistic Regression** modeli seçilmiştir.
+### GridSearchCV Sonuçları (5-Fold Cross-Validation)
+
+| Model | En İyi CV ROC-AUC | Test ROC-AUC | Test F1 |
+|---|---|---|---|
+| Logistic Regression | 0.8463 | 0.8352 | 0.6037 |
+| **XGBoost** | **0.8490** | **0.8392** | 0.5835 |
+| Random Forest | 0.8468 | 0.8376 | 0.6343 |
+
+**Seçilen model**: XGBoost (GridSearchCV sonrası en yüksek Test ROC-AUC: 0.8392)
+- En iyi parametreler: `learning_rate=0.1, max_depth=3, n_estimators=100`
+
+### En Önemli Feature'lar
+
+1. InternetService_Fiber optic
+2. Contract_One year
+3. Contract_Two year
+4. InternetService_No
+5. tenure
 
 ---
 
@@ -91,7 +122,8 @@ uvicorn app.main:app --reload
 Streamlit arayüzünü başlat (Terminal 2):
 
 ```bash
-streamlit run streamlit_app.py
+# Lokalde çalıştırırken API_HOST ortam değişkenini ayarla:
+API_HOST=localhost streamlit run streamlit_app.py
 ```
 
 ---
@@ -106,36 +138,31 @@ http://localhost:8000/docs
 
 ### POST /predict
 
-Müşteri bilgilerini alır, churn tahmini döndürür.
+Müşteri bilgilerini **ham/kategorik formatta** alır, churn tahmini döndürür. Preprocessing API içinde otomatik yapılır.
 
 **Örnek istek:**
 
 ```json
 {
-  "gender": 1,
+  "gender": "Male",
   "SeniorCitizen": 0,
-  "Partner": 0,
-  "Dependents": 0,
+  "Partner": "No",
+  "Dependents": "No",
   "tenure": 2,
-  "PhoneService": 1,
-  "OnlineSecurity": 0,
-  "OnlineBackup": 0,
-  "DeviceProtection": 0,
-  "TechSupport": 0,
-  "StreamingTV": 0,
-  "StreamingMovies": 0,
-  "PaperlessBilling": 1,
+  "PhoneService": "Yes",
+  "MultipleLines": "No",
+  "InternetService": "Fiber optic",
+  "OnlineSecurity": "No",
+  "OnlineBackup": "No",
+  "DeviceProtection": "No",
+  "TechSupport": "No",
+  "StreamingTV": "No",
+  "StreamingMovies": "No",
+  "Contract": "Month-to-month",
+  "PaperlessBilling": "Yes",
+  "PaymentMethod": "Electronic check",
   "MonthlyCharges": 70.70,
-  "TotalCharges": 151.65,
-  "MultipleLines_No phone service": 0,
-  "MultipleLines_Yes": 0,
-  "InternetService_Fiber optic": 1,
-  "InternetService_No": 0,
-  "Contract_One year": 0,
-  "Contract_Two year": 0,
-  "PaymentMethod_Credit card (automatic)": 0,
-  "PaymentMethod_Electronic check": 1,
-  "PaymentMethod_Mailed check": 0
+  "TotalCharges": 151.65
 }
 ```
 
@@ -153,8 +180,17 @@ Müşteri bilgilerini alır, churn tahmini döndürür.
 
 ## Veri Seti
 
-Kaggle üzerindeki [Telco Customer Churn](https://www.kaggle.com/datasets/blastchar/telco-customer-churn) veri seti kullanılmıştır.
+Kaggle üzerindeki [Telco Customer Churn](https://www.kaggle.com/datasets/blastchar/telco-churn) veri seti kullanılmıştır.
 
 - **7043 müşteri**, **21 özellik**
 - Hedef değişken: `Churn` (Yes/No)
-- Sınıf dağılımı: %73 kalan, %27 ayrılan
+- Sınıf dağılımı: %73 kalan, %27 ayrılan (dengesiz veri seti)
+
+---
+
+## Testleri Çalıştırma
+
+```bash
+pip install pytest httpx
+pytest tests/test_api.py -v
+```

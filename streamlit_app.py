@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import os
 
 st.set_page_config(page_title="Telco Churn Prediction", page_icon="📡", layout="centered")
 
@@ -12,21 +13,21 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("Kişisel Bilgiler")
-    gender = st.selectbox("Cinsiyet", ["Erkek", "Kadın"])
-    senior = st.selectbox("Yaşlı Vatandaş mı?", ["Hayır", "Evet"])
-    partner = st.selectbox("Eşi var mı?", ["Hayır", "Evet"])
-    dependents = st.selectbox("Bakmakla yükümlü kişi var mı?", ["Hayır", "Evet"])
+    gender = st.selectbox("Cinsiyet", ["Male", "Female"])
+    senior = st.selectbox("Yaşlı Vatandaş mı?", ["No", "Yes"])
+    partner = st.selectbox("Eşi var mı?", ["No", "Yes"])
+    dependents = st.selectbox("Bakmakla yükümlü kişi var mı?", ["No", "Yes"])
     tenure = st.slider("Kaç aydır müşteri?", 0, 72, 12)
 
 with col2:
     st.subheader("Sözleşme Bilgileri")
-    contract = st.selectbox("Sözleşme Tipi", ["Aylık", "Yıllık", "İki Yıllık"])
-    paperless = st.selectbox("Kağıtsız Fatura?", ["Hayır", "Evet"])
+    contract = st.selectbox("Sözleşme Tipi", ["Month-to-month", "One year", "Two year"])
+    paperless = st.selectbox("Kağıtsız Fatura?", ["No", "Yes"])
     payment = st.selectbox("Ödeme Yöntemi", [
-        "Elektronik Çek",
-        "Posta Çeki", 
-        "Banka Transferi (Otomatik)",
-        "Kredi Kartı (Otomatik)"
+        "Electronic check",
+        "Mailed check",
+        "Bank transfer (automatic)",
+        "Credit card (automatic)"
     ])
     monthly = st.number_input("Aylık Ücret ($)", 0.0, 200.0, 65.0)
     total = st.number_input("Toplam Ücret ($)", 0.0, 10000.0, 1000.0)
@@ -37,54 +38,52 @@ st.subheader("Hizmet Bilgileri")
 col3, col4 = st.columns(2)
 
 with col3:
-    phone = st.selectbox("Telefon Hizmeti", ["Hayır", "Evet"])
-    multiple_lines = st.selectbox("Birden Fazla Hat", ["Hayır", "Evet", "Telefon hizmeti yok"])
-    internet = st.selectbox("İnternet Hizmeti", ["DSL", "Fiber", "Yok"])
-    online_security = st.selectbox("Online Güvenlik", ["Hayır", "Evet"])
-    online_backup = st.selectbox("Online Yedekleme", ["Hayır", "Evet"])
+    phone = st.selectbox("Telefon Hizmeti", ["No", "Yes"])
+    multiple_lines = st.selectbox("Birden Fazla Hat", ["No", "Yes", "No phone service"])
+    internet = st.selectbox("İnternet Hizmeti", ["DSL", "Fiber optic", "No"])
+    online_security = st.selectbox("Online Güvenlik", ["No", "Yes", "No internet service"])
+    online_backup = st.selectbox("Online Yedekleme", ["No", "Yes", "No internet service"])
 
 with col4:
-    device_protection = st.selectbox("Cihaz Koruma", ["Hayır", "Evet"])
-    tech_support = st.selectbox("Teknik Destek", ["Hayır", "Evet"])
-    streaming_tv = st.selectbox("TV Yayını", ["Hayır", "Evet"])
-    streaming_movies = st.selectbox("Film Yayını", ["Hayır", "Evet"])
+    device_protection = st.selectbox("Cihaz Koruma", ["No", "Yes", "No internet service"])
+    tech_support = st.selectbox("Teknik Destek", ["No", "Yes", "No internet service"])
+    streaming_tv = st.selectbox("TV Yayını", ["No", "Yes", "No internet service"])
+    streaming_movies = st.selectbox("Film Yayını", ["No", "Yes", "No internet service"])
 
 st.divider()
 
-def encode(val):
-    return 1 if val == "Evet" else 0
+# API URL: Docker ortaminda "api", lokalde "localhost"
+API_HOST = os.environ.get("API_HOST", "api")
+API_URL = f"http://{API_HOST}:8000/predict"
 
 if st.button("Tahmin Et", use_container_width=True, type="primary"):
+    # Ham/kategorik veriyi dogrudan gonder - preprocessing API tarafinda yapilir
     payload = {
-        "gender": 1 if gender == "Erkek" else 0,
-        "SeniorCitizen": encode(senior),
-        "Partner": encode(partner),
-        "Dependents": encode(dependents),
+        "gender": gender,
+        "SeniorCitizen": 1 if senior == "Yes" else 0,
+        "Partner": partner,
+        "Dependents": dependents,
         "tenure": tenure,
-        "PhoneService": encode(phone),
-        "OnlineSecurity": encode(online_security),
-        "OnlineBackup": encode(online_backup),
-        "DeviceProtection": encode(device_protection),
-        "TechSupport": encode(tech_support),
-        "StreamingTV": encode(streaming_tv),
-        "StreamingMovies": encode(streaming_movies),
-        "PaperlessBilling": encode(paperless),
+        "PhoneService": phone,
+        "MultipleLines": multiple_lines,
+        "InternetService": internet,
+        "OnlineSecurity": online_security,
+        "OnlineBackup": online_backup,
+        "DeviceProtection": device_protection,
+        "TechSupport": tech_support,
+        "StreamingTV": streaming_tv,
+        "StreamingMovies": streaming_movies,
+        "Contract": contract,
+        "PaperlessBilling": paperless,
+        "PaymentMethod": payment,
         "MonthlyCharges": monthly,
         "TotalCharges": total,
-        "MultipleLines_No phone service": 1 if multiple_lines == "Telefon hizmeti yok" else 0,
-        "MultipleLines_Yes": 1 if multiple_lines == "Evet" else 0,
-        "InternetService_Fiber optic": 1 if internet == "Fiber" else 0,
-        "InternetService_No": 1 if internet == "Yok" else 0,
-        "Contract_One year": 1 if contract == "Yıllık" else 0,
-        "Contract_Two year": 1 if contract == "İki Yıllık" else 0,
-        "PaymentMethod_Credit card (automatic)": 1 if payment == "Kredi Kartı (Otomatik)" else 0,
-        "PaymentMethod_Electronic check": 1 if payment == "Elektronik Çek" else 0,
-        "PaymentMethod_Mailed check": 1 if payment == "Posta Çeki" else 0,
     }
 
     with st.spinner("Tahmin yapılıyor..."):
         try:
-            response = requests.post("http://api:8000/predict", json=payload)
+            response = requests.post(API_URL, json=payload, timeout=10)
+            response.raise_for_status()
             result = response.json()
 
             st.divider()
@@ -96,5 +95,9 @@ if st.button("Tahmin Et", use_container_width=True, type="primary"):
 
             st.metric("Ayrılma Olasılığı", f"%{round(result['probability'] * 100, 1)}")
 
+        except requests.exceptions.ConnectionError:
+            st.error(f"API'ye bağlanılamadı. FastAPI çalışıyor mu? (URL: {API_URL})")
+        except requests.exceptions.HTTPError as e:
+            st.error(f"API hatası: {e.response.text}")
         except Exception as e:
-            st.error(f"API'ye bağlanılamadı: {e}. FastAPI çalışıyor mu?")
+            st.error(f"Beklenmeyen hata: {e}")
